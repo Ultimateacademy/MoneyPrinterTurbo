@@ -1,0 +1,63 @@
+# ============================================================
+# config.toml — MoneyPrinterTurbo para o Hub da Tropa (VPS)
+#
+# COPIE este arquivo como "config.toml" e preencha as chaves.
+# NÃO commite este arquivo com chaves reais.
+#
+# Chaves que você precisa preencher (marcadas com COLE_AQUI):
+#   - pexels_api_keys:   sua chave nova do Pexels
+#   - openai_api_key:    sua chave do Groq (mesma do Hub)
+# ============================================================
+
+[app]
+video_source = "pexels"
+hide_config = false
+edge_tts_timeout = 30
+tls_verify = true
+match_materials_to_script = false
+video_codec = "libx264"
+# n_threads=4: usa o CPU todo do servidor (default 2 = metade ociosa).
+n_threads = 4
+pexels_api_keys = [ "COLE_AQUI_SUA_CHAVE_PEXELS_NOVA" ]
+pixabay_api_keys = []
+coverr_api_keys = []
+twelvelabs_api_keys = []
+llm_provider = "openai"
+# Groq (grátis) no endpoint OpenAI-compatible.
+openai_api_key = "COLE_AQUI_SUA_CHAVE_GROQ"
+openai_base_url = "https://api.groq.com/openai/v1"
+openai_model_name = "llama-3.3-70b-versatile"
+mimo_api_key = ""
+redis_host = "localhost"
+# whisper: necessário quando usamos custom_audio_file (o Hub manda a narração
+# pronta do WStudio). Sem isso, as legendas não funcionam (task.py:204-212).
+subtitle_provider = "whisper"
+
+[azure]
+
+[siliconflow]
+
+[elevenlabs]
+
+[chatterbox]
+
+[whisper]
+# Modelo medium (~1.5GB): equilibra qualidade x RAM na VPS de 8GB.
+# Baixa automático no 1º run (vai pra models/whisper-medium/).
+model_size = "medium"
+device = "cpu"
+compute_type = "int8"
+
+[ui]
+hide_log = false
+language = "pt"
+tts_server = "azure-tts-v1"
+# Fix: o sufixo "-Male" não existe no Edge-TTS/Azure e causava "Invalid voice".
+voice_name = "pt-BR-AntonioNeural"
+font_name = "MicrosoftYaHeiBold.ttc"
+subtitle_position = "bottom"
+text_fore_color = "#FFFFFF"
+font_size = 60
+subtitle_background_enabled = true
+subtitle_background_color = "#000000"
+rounded_subtitle_background = false

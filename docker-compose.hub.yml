@@ -1,0 +1,49 @@
+# ============================================================
+# docker-compose.hub.yml — MoneyPrinterTurbo integrado ao Hub da Tropa
+#
+# Roda na MESMA rede do Hub (hub-network) pra que o container
+# "hub-da-tropa" consiga falar com ele via http://moneyprinter:8080.
+#
+# COMO USAR (na VPS):
+#   1. git clone o MoneyPrinterTurbo em /opt/MoneyPrinterTurbo
+#   2. Editar config.toml com as chaves (Pexels nova, Groq)
+#   3. docker compose -f docker-compose.hub.yml up -d --build
+#
+# PRÉ-REQUISITO: o Hub precisa estar rodando primeiro (ele cria a rede).
+# ============================================================
+
+services:
+  moneyprinter:
+    container_name: moneyprinter
+    build: .
+    restart: unless-stopped
+    environment:
+      - TZ=America/Sao_Paulo
+    # Monta config.toml e storage como volumes (config editável sem rebuild;
+    # storage persiste vídeos gerados entre restarts).
+    volumes:
+      - ./config.toml:/MoneyPrinterTurbo/config.toml
+      - ./storage:/MoneyPrinterTurbo/storage
+    # MoneyPrinter é pesado (ffmpeg + whisper). 4GB é o teto seguro na VPS
+    # de 8GB que já roda Hub (1GB) + legendas (3GB) + sistema (1GB).
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    # Conecta à rede externa criada pelo docker-compose do Hub.
+    networks:
+      - hub-network
+    healthcheck:
+      # API responde em /docs (Swagger UI) — se abrir, tá saudável.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/docs')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  hub-network:
+    # Rede externa: criada pelo docker-compose do Hub (hub-da-tropa).
+    # Nome real no Docker: hub-da-tropa_hub-network (prefixo = nome da pasta).
+    external: true
+    name: hub-da-tropa_hub-network
