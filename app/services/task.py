@@ -222,8 +222,20 @@ def generate_subtitle(task_id, params, video_script, sub_maker, audio_file):
 
     if subtitle_provider == "whisper" or subtitle_fallback:
         subtitle.create(audio_file=audio_file, subtitle_file=subtitle_path)
-        logger.info("\n\n## correcting subtitle")
-        subtitle.correct(subtitle_file=subtitle_path, video_script=video_script)
+
+        # red-team: o correct() realinha o SRT comparando com o video_script
+        # original, mas quando usamos custom_audio_file a fala real (TTS) pode
+        # divergir do roteiro teorico em ritimo/pausas. O correct() entao
+        # reordena/merge legendas pela ordem do roteiro, empurrando os
+        # timestamps pra frente -> legenda fica ATRASADA em relacao a voz.
+        # O Whisper ja gera timestamps precisos direto do audio; o correct()
+        # so ajuda quando o video_script bate 1:1 com a fala (TTS interno).
+        has_custom_audio = bool(getattr(params, "custom_audio_file", "") or "").strip()
+        if has_custom_audio:
+            logger.info("custom audio detectado: pulando correct() (Whisper ja esta sincronizado)")
+        else:
+            logger.info("\n\n## correcting subtitle")
+            subtitle.correct(subtitle_file=subtitle_path, video_script=video_script)
 
     subtitle_lines = subtitle.file_to_subtitles(subtitle_path)
     if not subtitle_lines:

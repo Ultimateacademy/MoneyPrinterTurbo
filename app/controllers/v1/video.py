@@ -2,6 +2,7 @@ import glob
 import os
 import pathlib
 import shutil
+import uuid
 from typing import Union
 
 from fastapi import BackgroundTasks, Depends, Path, Query, Request, UploadFile
@@ -18,6 +19,7 @@ from app.controllers.v1.base import new_router
 from app.models.exception import HttpException
 from app.models.schema import (
     AudioRequest,
+    AudioUploadResponse,
     BgmRetrieveResponse,
     BgmUploadResponse,
     SubtitleRequest,
@@ -333,6 +335,72 @@ def upload_video_material_file(request: Request, file: UploadFile = File(...)):
     raise HttpException(
         "", status_code=400, message=f"{request_id}: Only files with extensions {', '.join(allowed_suffixes)} can be uploaded"
     )
+
+
+@router.post(
+    "/audios",
+    response_model=AudioUploadResponse,
+    summary="Upload the custom narration audio (MP3) to the custom_audios directory",
+)
+def upload_custom_audio_file(request: Request, file: UploadFile = File(...)):
+    """Recebe a narracao pronta (MP3) enviada pelo Hub e salva em
+    ``storage/custom_audios/``. O nome retornado vai direto no campo
+    ``custom_audio_file`` da criacao de task, fazendo o MoneyPrinter
+    pular o TTS interno e usar esse audio.
+
+    red-team #1: limite de tamanho pra evitar DoS por upload gigante.
+    O MoneyPrinter nao tem auth neste endpoint (router publico), entao qualquer
+    cliente pode mandar arquivo. Sem limite, um POST com payload de varios GB
+    carrega tudo na RAM (file.read()) e derruba o processo por OOM. 20MB e
+    folgado: um MP3 de 90s tem ~1.5MB.
+    """
+    MAX_AUDIO_BYTES = 20 * 1024 * 1024  # 20 MB
+
+    request_id = base.get_task_id(request)
+    safe_filename = _sanitize_upload_filename(file.filename, request_id)
+    if not safe_filename.lower().endswith("mp3"):
+        raise HttpException(
+            "",
+            status_code=400,
+            message=f"{request_id}: Only *.mp3 files can be uploaded as custom audio",
+        )
+    # Nome unico pra evitar colisao entre narracoes de usuarios diferentes.
+    unique_prefix = uuid.uuid4().hex[:8]
+    final_name = f"hub-{unique_prefix}.mp3"
+    custom_audio_dir = utils.storage_dir("custom_audios", create=True)
+    save_path = os.path.join(custom_audio_dir, final_name)
+
+    # Le em chunks com checagem de limite (nao carrega tudo na RAM de uma vez).
+    file.file.seek(0)
+    written = 0
+    with open(save_path, "wb+") as buffer:
+        while True:
+            chunk = file.file.read(1024 * 1024)  # 1 MB por iteracao
+            if not chunk:
+                break
+            written += len(chunk)
+            if written > MAX_AUDIO_BYTES:
+                buffer.close()
+                # Limpa o arquivo parcial pra nao deixar lixo no disco.
+                try:
+                    os.remove(save_path)
+                except OSError:
+                    pass
+                raise HttpException(
+                    "",
+                    status_code=413,
+                    message=f"{request_id}: audio exceeds {MAX_AUDIO_BYTES // (1024 * 1024)} MB limit",
+                )
+            buffer.write(chunk)
+
+    # Retorna o path relativo ao root_dir() do projeto, que e exatamente o
+    # formato que resolve_custom_audio_file valida (task.py:103-118). Se
+    # devolvesse so o nome do arquivo, o resolvedor faria
+    # path.join(root_dir(), "hub-xxx.mp3") e nao encontraria o arquivo.
+    rel_path = os.path.join("storage", "custom_audios", final_name)
+    response = {"file": rel_path}
+    return utils.get_response(200, response)
+
 
 @router.get("/stream/{file_path:path}")
 async def stream_video(request: Request, file_path: str):

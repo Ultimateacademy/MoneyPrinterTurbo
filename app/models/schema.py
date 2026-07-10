@@ -380,3 +380,22 @@ class VideoMaterialUploadResponse(BaseResponse):
                 },
             },
         }
+
+
+class AudioUploadResponse(BaseResponse):
+    """Resposta do upload de áudio custom (narracao pronta do Hub).
+
+    O ``file`` retornado e o nome relativo dentro de ``storage/custom_audios/``.
+    Esse nome vai direto no campo ``custom_audio_file`` da criacao de task,
+    onde ``resolve_custom_audio_file`` valida contra o diretorio da task e
+    depois contra a raiz do projeto.
+    """
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "status": 200,
+                "message": "success",
+                "data": {"file": "hub-abc123.mp3"},
+            },
+        }
