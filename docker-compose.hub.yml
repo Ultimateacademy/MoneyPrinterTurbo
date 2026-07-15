@@ -24,12 +24,13 @@ services:
     volumes:
       - ./config.toml:/MoneyPrinterTurbo/config.toml
       - ./storage:/MoneyPrinterTurbo/storage
-    # MoneyPrinter é pesado (ffmpeg + whisper). 4GB é o teto seguro na VPS
-    # de 8GB que já roda Hub (1GB) + legendas (3GB) + sistema (1GB).
+    # Aumentado de 4G → 8G após upgrade KVM 4 (16GB total).
+    # MoneyPrinter (Whisper + TTS + ffmpeg em paralelo) precisa de bastante
+    # RAM durante o Canal Faceless completo (~25min de processamento).
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 8G
     # Conecta à rede externa criada pelo docker-compose do Hub.
     networks:
       - hub-network
